@@ -1,0 +1,6 @@
+{
+  "name": "RakshakAI",
+  "description": "AI-Powered Digital Public Safety Intelligence Platform for cybercrime detection, threat prevention, and financial security.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
