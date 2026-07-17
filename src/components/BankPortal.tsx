@@ -246,7 +246,8 @@ export default function BankPortal({ currentTheme }: BankPortalProps) {
         body: JSON.stringify({
           imageBase64: fileBase64,
           denomination: denomination,
-          presetType: presetType || (fileName?.includes('genuine') ? 'genuine' : 'counterfeit')
+          presetType: presetType || (fileName?.includes('genuine') ? 'genuine' : 'counterfeit'),
+          fileName: fileName
         })
       });
 

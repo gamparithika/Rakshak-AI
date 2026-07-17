@@ -273,7 +273,8 @@ export default function CitizenPortal({ currentTheme, currentLanguage }: Citizen
           body: JSON.stringify({
             imageBase64: fileBase64,
             denomination: denomination,
-            presetType: banknotePreset
+            presetType: banknotePreset,
+            fileName: fileName
           })
         });
         const data = await response.json();
@@ -1174,7 +1175,7 @@ export default function CitizenPortal({ currentTheme, currentLanguage }: Citizen
               {uploadType !== 'report' && uploadType !== 'alerts' && (
                 <button
                   onClick={runAIScan}
-                  disabled={loading || (uploadType === 'text' && !suspectText.trim())}
+                  disabled={loading || (uploadType === 'text' && !suspectText.trim() && !suspectNo.trim())}
                   className={`w-full py-3 rounded-lg text-sm font-bold uppercase tracking-wider text-white transition-all ${
                     loading 
                       ? 'bg-slate-400 cursor-not-allowed' 

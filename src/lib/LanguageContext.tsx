@@ -789,9 +789,132 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return localStorage.getItem('rakshak_language') || 'en';
   });
 
+  useEffect(() => {
+    // 1. Ensure invisible Google Translate container element exists
+    // We style it off-screen instead of display: none so the widget layout calculations initialize correctly
+    let gtDiv = document.getElementById('google_translate_element');
+    if (!gtDiv) {
+      gtDiv = document.createElement('div');
+      gtDiv.id = 'google_translate_element';
+      gtDiv.style.position = 'absolute';
+      gtDiv.style.top = '-9999px';
+      gtDiv.style.left = '-9999px';
+      gtDiv.style.opacity = '0';
+      gtDiv.style.pointerEvents = 'none';
+      document.body.appendChild(gtDiv);
+    }
+
+    // 2. Define global CSS to hide Google Translate banners, hover widgets, and highlights
+    const styleId = 'google-translate-hidden-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.innerHTML = `
+        .goog-te-banner-frame, .goog-te-banner, .goog-te-balloon, .goog-te-gadget-icon, .goog-te-gadget-simple {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        body {
+          top: 0px !important;
+          position: static !important;
+        }
+        #goog-gt-tt, .goog-te-tooltip, .goog-te-tooltip:hover, .goog-te-menu-frame, .goog-te-menu-value {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        .goog-text-highlight {
+          background-color: transparent !important;
+          box-shadow: none !important;
+          border: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // 3. Define global googleTranslateElementInit callback
+    const initTranslate = () => {
+      try {
+        if ((window as any).google && (window as any).google.translate) {
+          new (window as any).google.translate.TranslateElement({
+            pageLanguage: 'en',
+            layout: (window as any).google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false
+          }, 'google_translate_element');
+        }
+      } catch (e) {
+        console.error("Google Translate init error:", e);
+      }
+    };
+
+    (window as any).googleTranslateElementInit = initTranslate;
+
+    // 4. Load script if not already present
+    const existingScript = document.querySelector('script[src*="translate.google.com"]');
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      document.body.appendChild(script);
+    } else if ((window as any).google && (window as any).google.translate) {
+      initTranslate();
+    }
+
+    // 5. Ensure current language cookie is in sync on mount
+    const lang = localStorage.getItem('rakshak_language') || 'en';
+    if (lang !== 'en') {
+      document.cookie = `googtrans=/en/${lang}; path=/; SameSite=None; Secure;`;
+      document.cookie = `googtrans=/en/${lang}; path=/;`;
+    } else {
+      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=None; Secure;";
+      document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    }
+
+    // 6. Polling fallback to programmatically set and trigger the translate select dropdown.
+    // This is the absolute bulletproof fallback for cross-origin iframes where cookies might be restricted!
+    if (lang !== 'en') {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        const selectEl = document.querySelector('select.goog-te-combo') as HTMLSelectElement;
+        if (selectEl) {
+          selectEl.value = lang;
+          selectEl.dispatchEvent(new Event('change'));
+          clearInterval(interval);
+        }
+        attempts++;
+        if (attempts > 30) { // Limit to 15 seconds
+          clearInterval(interval);
+        }
+      }, 500);
+    }
+  }, []);
+
   const setLanguage = (lang: string) => {
     setLanguageState(lang);
     localStorage.setItem('rakshak_language', lang);
+
+    // Clear existing translation cookies
+    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=None; Secure;";
+    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+    if (lang !== 'en') {
+      // Set the translation cookie with SameSite=None and Secure to allow running inside the development iframe
+      document.cookie = `googtrans=/en/${lang}; path=/; SameSite=None; Secure;`;
+      document.cookie = `googtrans=/en/${lang}; path=/;`;
+    }
+
+    // Try to trigger the Google Translate select dropdown manually before reload
+    try {
+      const selectEl = document.querySelector('select.goog-te-combo') as HTMLSelectElement;
+      if (selectEl) {
+        selectEl.value = lang === 'en' ? '' : lang;
+        selectEl.dispatchEvent(new Event('change'));
+      }
+    } catch (err) {
+      console.error("Error manual trigger google translate combo:", err);
+    }
+
+    // Fast refresh to apply Google Translate across the entire DOM instantly
+    window.location.reload();
   };
 
   const t = (key: string): string => {
